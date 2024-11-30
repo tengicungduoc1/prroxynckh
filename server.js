@@ -9,14 +9,13 @@ const targetURL = 'https://rixclyagnxfhpxnpdhqu.supabase.co';  // Thay thế b�
 // Thiết lập proxy cho tất cả các yêu cầu
 app.use('/proxy', createProxyMiddleware({
   target: targetURL,
-  changeOrigin: true, // Thay đổi origin của yêu cầu thành server đích
-  secure: false, // Bỏ qua SSL (nếu có vấn đề với chứng chỉ)
+  changeOrigin: true,
+  secure: false, 
   pathRewrite: {
-    '^/proxy': '',  // Tách '/proxy' khỏi đường dẫn
+    '^/proxy': '',  // Xóa '/proxy' khỏi đường dẫn khi chuyển tiếp
   },
   onProxyReq: (proxyReq, req, res) => {
-    // Thêm API key vào header (nếu cần)
-    proxyReq.setHeader('Authorization', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpeGNseWFnbnhmaHB4bnBkaHF1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczMjM3NzE3MywiZXhwIjoyMDQ3OTUzMTczfQ.NuH6Ith4qM-LUEHVbska9EbRw6iVwgYFKl-Gdg1sgwA'); // Thay 'your_api_key_here' bằng API key thực tế
+    proxyReq.setHeader('Authorization', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpeGNseWFnbnhmaHB4bnBkaHF1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczMjM3NzE3MywiZXhwIjoyMDQ3OTUzMTczfQ.NuH6Ith4qM-LUEHVbska9EbRw6iVwgYFKl-Gdg1sgwA');
   }
 }));
 
