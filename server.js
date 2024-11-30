@@ -3,24 +3,25 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
 
-// �?t URL c?a Supabase API (ho?c URL m� b?n mu?n proxy)
-const targetURL = 'https://rixclyagnxfhpxnpdhqu.supabase.co';  // Thay th? b?ng URL c?a Supabase ho?c API c?a b?n
+// Đặt URL của Supabase API (hoặc URL mà bạn muốn proxy)
+const targetURL = 'https://rixclyagnxfhpxnpdhqu.supabase.co';  // Thay thế bằng URL của Supabase hoặc API của bạn
 
-// Thi?t l?p proxy cho t?t c? c�c y�u c?u
+// Thiết lập proxy cho tất cả các yêu cầu
 app.use('/proxy', createProxyMiddleware({
   target: targetURL,
-  changeOrigin: true, // Thay �?i origin c?a y�u c?u th�nh server ��ch
-  secure: false, // B? qua SSL (n?u c� v?n �? v?i ch?ng ch?)
+  changeOrigin: true, // Thay đổi origin của yêu cầu thành server đích
+  secure: false, // Bỏ qua SSL (nếu có vấn đề với chứng chỉ)
   pathRewrite: {
-    '^/proxy': '',  // T�ch '/proxy' kh?i ��?ng d?n
+    '^/proxy': '',  // Tách '/proxy' khỏi đường dẫn
   },
   onProxyReq: (proxyReq, req, res) => {
-    // Th�m API key v�o header (n?u c?n)
-    proxyReq.setHeader('Authorization', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpeGNseWFnbnhmaHB4bnBkaHF1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczMjM3NzE3MywiZXhwIjoyMDQ3OTUzMTczfQ.NuH6Ith4qM-LUEHVbska9EbRw6iVwgYFKl-Gdg1sgwA'); // Thay 'your_api_key_here' b?ng API key th?c t?
+    // Thêm API key vào header (nếu cần)
+    proxyReq.setHeader('Authorization', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpeGNseWFnbnhmaHB4bnBkaHF1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczMjM3NzE3MywiZXhwIjoyMDQ3OTUzMTczfQ.NuH6Ith4qM-LUEHVbska9EbRw6iVwgYFKl-Gdg1sgwA'); // Thay 'your_api_key_here' bằng API key thực tế
   }
 }));
 
-// L?ng nghe tr�n c?ng 3000
-app.listen(4000, () => {
-  console.log('Proxy server �ang ch?y t?i http://localhost:3000');
+// Lắng nghe trên cổng do Heroku cấp phát
+const port = process.env.PORT || 5000; // Heroku sử dụng cổng động thông qua biến môi trường
+app.listen(port, () => {
+  console.log(`Proxy server đang chạy tại http://localhost:${port}`);
 });
