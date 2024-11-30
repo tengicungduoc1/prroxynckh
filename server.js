@@ -18,8 +18,8 @@ app.use(
     changeOrigin: true,
     secure: false,
     pathRewrite: { '^/proxy': '' }, // Xóa tiền tố "/proxy" khỏi đường dẫn khi chuyển tiếp
-    timeout: 50000, // Thời gian chờ cho yêu cầu đến proxy (20 giây)
-    proxyTimeout: 50000, // Thời gian chờ cho phản hồi từ máy chủ đích (20 giây)
+    timeout: 50000, // Thời gian chờ cho yêu cầu đến proxy (50 giây)
+    proxyTimeout: 50000, // Thời gian chờ cho phản hồi từ máy chủ đích (50 giây)
     onProxyReq: (proxyReq, req, res) => {
       // Lấy API key từ query string và thêm vào header
       const apiKey = req.query.apikey;
