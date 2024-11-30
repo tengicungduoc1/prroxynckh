@@ -1,6 +1,10 @@
 const express = require('express');
+const { createProxyMiddleware } = require('http-proxy-middleware'); // Thêm import cho createProxyMiddleware
 const app = express(); // Khai báo instance của express
-pp.use(
+const targetURL = 'https://your-target-url.com'; // Đảm bảo bạn có targetURL đúng ở đây
+
+// Đặt middleware cho route '/proxy'
+app.use(
   '/proxy',
   createProxyMiddleware({
     target: targetURL,
@@ -10,7 +14,7 @@ pp.use(
     timeout: 120000, // Thời gian chờ cho yêu cầu đến proxy (120 giây)
     proxyTimeout: 120000, // Thời gian chờ cho phản hồi từ máy chủ đích (120 giây)
 
-    // Xử lý yêu cầu trước khi chuyển tiếp (trong trường hợp POST/PUT/...)
+    // Xử lý yêu cầu trước khi chuyển tiếp (trong trường hợp POST/PUT/...):
     onProxyReq: (proxyReq, req, res) => {
       const apiKey = req.query.apikey;  // Nếu có query parameter 'apikey'
       if (apiKey) {
@@ -53,3 +57,9 @@ pp.use(
     },
   })
 );
+
+// Lắng nghe tại port (ví dụ port 3000)
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
