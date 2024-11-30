@@ -1,7 +1,7 @@
 const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware'); // Thêm import cho createProxyMiddleware
 const app = express(); // Khai báo instance của express
-const targetURL = 'https://your-target-url.com'; // Đảm bảo bạn có targetURL đúng ở đây
+const targetURL = 'https://rixclyagnxfhpxnpdhqu.supabase.co'; // Đảm bảo bạn có targetURL đúng ở đây
 
 // Đặt middleware cho route '/proxy'
 app.use(
