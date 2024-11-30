@@ -2,7 +2,7 @@ const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
-const targetURL = 'https://your-supabase-url'; // Thay bằng URL của Supabase hoặc máy chủ đích
+const targetURL = 'https://rixclyagnxfhpxnpdhqu.supabase.co'; // Thay bằng URL của Supabase hoặc máy chủ đích
 
 app.use(express.json());  // Để có thể đọc body JSON trong các POST/PUT
 
