@@ -15,11 +15,11 @@ app.use('/proxy', createProxyMiddleware({
     '^/proxy': '',  // Xóa '/proxy' khỏi đường dẫn khi chuyển tiếp
   },
   onProxyReq: (proxyReq, req, res) => {
-    // Thêm API key vào header yêu cầu
-    const apiKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJpeGNseWFnbnhmaHB4bnBkaHF1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczMjM3NzE3MywiZXhwIjoyMDQ3OTUzMTczfQ.NuH6Ith4qM-LUEHVbska9EbRw6iVwgYFKl-Gdg1sgwA'; // API key thực tế
-
-    // Thêm API key vào header theo định dạng Bearer
-    proxyReq.setHeader('Authorization', `Bearer ${apiKey}`);
+    // Giữ lại `apikey` từ query string và thêm vào URL của yêu cầu
+    const apiKey = req.query.apikey;  // Lấy API key từ query string
+    if (apiKey) {
+      proxyReq.url = `${proxyReq.url}?apikey=${apiKey}`;  // Đảm bảo API key được giữ lại trong URL
+    }
   }
 }));
 
