@@ -18,8 +18,8 @@ app.use(
     changeOrigin: true,
     secure: false,
     pathRewrite: { '^/proxy': '' }, // Xóa tiền tố "/proxy" khỏi đường dẫn khi chuyển tiếp
-    timeout: 50000, // Thời gian chờ cho yêu cầu đến proxy (50 giây)
-    proxyTimeout: 50000, // Thời gian chờ cho phản hồi từ máy chủ đích (50 giây)
+    timeout: 60000, // Thời gian chờ cho yêu cầu đến proxy (60 giây)
+    proxyTimeout: 60000, // Thời gian chờ cho phản hồi từ máy chủ đích (60 giây)
     onProxyReq: (proxyReq, req, res) => {
       // Lấy API key từ query string và thêm vào header
       const apiKey = req.query.apikey;
@@ -33,9 +33,9 @@ app.use(
         const bodyData = JSON.stringify(req.body);
         proxyReq.setHeader('Content-Type', 'application/json');
         proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+        console.log('Body data before sending to Supabase:', bodyData);
         proxyReq.write(bodyData);
         proxyReq.end();
-        console.log('Body sent to Supabase:', bodyData);
       }
     },
     onError: (err, req, res) => {
