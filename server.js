@@ -4,44 +4,55 @@ const bodyParser = require('body-parser');
 
 const app = express();
 
+// Đặt URL của Supabase
 const targetURL = 'https://rixclyagnxfhpxnpdhqu.supabase.co';
 
 // Middleware xử lý JSON
 app.use(bodyParser.json());
 
-// Thiết lập proxy
-app.use('/proxy', createProxyMiddleware({
-  target: targetURL,
-  changeOrigin: true,
-  secure: false,
-  pathRewrite: { '^/proxy': '' },
-  onProxyReq: (proxyReq, req, res) => {
-    const apiKey = req.query.apikey;
-    if (apiKey) {
-      proxyReq.setHeader('apikey', apiKey); // Đưa apikey vào header
-    }
+// Proxy middleware
+app.use(
+  '/proxy',
+  createProxyMiddleware({
+    target: targetURL,
+    changeOrigin: true,
+    secure: false,
+    pathRewrite: { '^/proxy': '' }, // Xóa tiền tố "/proxy" khỏi đường dẫn khi chuyển tiếp
+    onProxyReq: (proxyReq, req, res) => {
+      // Lấy API key từ query string và thêm vào header
+      const apiKey = req.query.apikey;
+      if (apiKey) {
+        proxyReq.setHeader('apikey', apiKey);
+        console.log('API Key added to header:', apiKey);
+      }
 
-    if (req.body) {
-      const bodyData = JSON.stringify(req.body);
-      proxyReq.setHeader('Content-Type', 'application/json');
-      proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
-      proxyReq.write(bodyData);
-      proxyReq.end();
-    }
-  },
-  onError: (err, req, res) => {
-    console.error('Proxy error details:', err.stack);
-    res.status(500).send(`Proxy error: ${err.message}`);
-  },
-}));
+      // Gửi body nếu là POST hoặc PATCH
+      if (req.body && ['POST', 'PATCH'].includes(req.method)) {
+        const bodyData = JSON.stringify(req.body);
+        proxyReq.setHeader('Content-Type', 'application/json');
+        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+        proxyReq.write(bodyData);
+        proxyReq.end();
+        console.log('Body sent to Supabase:', bodyData);
+      }
+    },
+    onError: (err, req, res) => {
+      console.error('Proxy error:', err.message);
+      res.status(500).json({
+        error: 'Proxy error',
+        message: err.message,
+      });
+    },
+  })
+);
 
-// Route root
+// Kiểm tra root endpoint
 app.get('/', (req, res) => {
-  res.send('Ứng dụng proxy đang chạy. Sử dụng /proxy để gửi yêu cầu đến API.');
+  res.send('Proxy server is running. Use /proxy to send requests to Supabase.');
 });
 
-// Listen trên cổng
+// Lắng nghe trên cổng Heroku hoặc 5000
 const port = process.env.PORT || 5000;
 app.listen(port, () => {
-  console.log(`Proxy server đang chạy tại http://localhost:${port}`);
+  console.log(`Proxy server is running at http://localhost:${port}`);
 });
