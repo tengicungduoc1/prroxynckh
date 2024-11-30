@@ -1,11 +1,3 @@
-const express = require('express');
-const { createProxyMiddleware } = require('http-proxy-middleware');
-
-const app = express();
-const targetURL = 'https://rixclyagnxfhpxnpdhqu.supabase.co'; // Thay bằng URL của Supabase hoặc máy chủ đích
-
-app.use(express.json());  // Để có thể đọc body JSON trong các POST/PUT
-
 app.use(
   '/proxy',
   createProxyMiddleware({
@@ -24,14 +16,15 @@ app.use(
         console.log('API Key added to header:', apiKey);
       }
 
-      // Xử lý body cho POST, PUT, PATCH
+      // Log body trước khi chuyển tiếp
+      console.log('Request Method:', req.method);
+      console.log('Request Body:', req.body);
+    },
+
+    // Sử dụng req.pipe() để truyền tải body
+    onProxyReqWs: (proxyReq, req, res) => {
       if (req.body && ['POST', 'PUT', 'PATCH'].includes(req.method)) {
-        const bodyData = JSON.stringify(req.body);
-        console.log('Body Data:', bodyData);  // Log dữ liệu body
-        proxyReq.setHeader('Content-Type', 'application/json');
-        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
-        proxyReq.write(bodyData);
-        proxyReq.end();  // Đảm bảo kết thúc yêu cầu sau khi viết body
+        req.pipe(proxyReq);  // Sử dụng pipe để truyền tải dữ liệu body
       }
     },
 
@@ -58,9 +51,3 @@ app.use(
     },
   })
 );
-
-// Lắng nghe server
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Proxy server is running on port ${port}`);
-});
