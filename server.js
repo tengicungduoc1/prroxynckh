@@ -20,8 +20,13 @@ app.use('/proxy', createProxyMiddleware({
   }
 }));
 
-// Lắng nghe trên cổng do Heroku cấp phát
-const port = process.env.PORT || 5000; // Heroku sử dụng cổng động thông qua biến môi trường
+// Xử lý yêu cầu đến root (/) của ứng dụng
+app.get('/', (req, res) => {
+  res.send('Ứng dụng proxy đang chạy. Sử dụng /proxy để gửi yêu cầu đến API.');
+});
+
+// Lắng nghe trên cổng Heroku
+const port = process.env.PORT || 5000; // Sử dụng cổng Heroku cấp phát hoặc cổng mặc định 5000
 app.listen(port, () => {
   console.log(`Proxy server đang chạy tại http://localhost:${port}`);
 });
