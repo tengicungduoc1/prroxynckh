@@ -1,4 +1,6 @@
-app.use(
+const express = require('express');
+const app = express(); // Khai báo instance của express
+pp.use(
   '/proxy',
   createProxyMiddleware({
     target: targetURL,
