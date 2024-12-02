@@ -1,5 +1,7 @@
 const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware'); // Thêm import cho createProxyMiddleware
+const moment = require('moment'); // Thêm thư viện moment.js để xử lý thời gian
+
 const app = express(); // Khai báo instance của express
 const targetURL = 'https://rixclyagnxfhpxnpdhqu.supabase.co'; // Đảm bảo bạn có targetURL đúng ở đây
 
@@ -9,14 +11,14 @@ app.use(
   createProxyMiddleware({
     target: targetURL,
     changeOrigin: true,
-    secure: false,  // Nếu không sử dụng HTTPS, thay thành true nếu dùng HTTPS
+    secure: false, // Nếu không sử dụng HTTPS, thay thành true nếu dùng HTTPS
     pathRewrite: { '^/proxy': '' }, // Xóa tiền tố "/proxy" khỏi đường dẫn
     timeout: 120000, // Thời gian chờ cho yêu cầu đến proxy (120 giây)
     proxyTimeout: 120000, // Thời gian chờ cho phản hồi từ máy chủ đích (120 giây)
 
     // Xử lý yêu cầu trước khi chuyển tiếp (trong trường hợp POST/PUT/...):
     onProxyReq: (proxyReq, req, res) => {
-      const apiKey = req.query.apikey;  // Nếu có query parameter 'apikey'
+      const apiKey = req.query.apikey; // Nếu có query parameter 'apikey'
       if (apiKey) {
         proxyReq.setHeader('apikey', apiKey);
         console.log('API Key added to header:', apiKey);
@@ -30,7 +32,7 @@ app.use(
     // Sử dụng req.pipe() để truyền tải body
     onProxyReqWs: (proxyReq, req, res) => {
       if (req.body && ['POST', 'PUT', 'PATCH'].includes(req.method)) {
-        req.pipe(proxyReq);  // Sử dụng pipe để truyền tải dữ liệu body
+        req.pipe(proxyReq); // Sử dụng pipe để truyền tải dữ liệu body
       }
     },
 
@@ -52,11 +54,19 @@ app.use(
 
       proxyRes.on('end', () => {
         console.log('Response from Supabase:', body);
-        res.status(proxyRes.statusCode).send(body);  // Gửi lại phản hồi về client
+        res.status(proxyRes.statusCode).send(body); // Gửi lại phản hồi về client
       });
     },
   })
 );
+
+// Thêm route để lấy thời gian thực
+app.get('/get-time', (req, res) => {
+  const currentTime = moment().utc().toISOString(); // Lấy thời gian UTC
+  res.json({
+    time: currentTime,
+  });
+});
 
 // Lắng nghe tại port (ví dụ port 3000)
 const port = process.env.PORT || 3000;
