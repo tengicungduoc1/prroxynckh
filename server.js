@@ -1,6 +1,6 @@
 const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware'); // Thêm import cho createProxyMiddleware
-const moment = require('moment'); // Thêm thư viện moment.js để xử lý thời gian
+const moment = require('moment-timezone'); // Thêm thư viện moment-timezone để xử lý múi giờ
 
 const app = express(); // Khai báo instance của express
 const targetURL = 'https://rixclyagnxfhpxnpdhqu.supabase.co'; // Đảm bảo bạn có targetURL đúng ở đây
@@ -60,9 +60,9 @@ app.use(
   })
 );
 
-// Thêm route để lấy thời gian thực
+// Thêm route để lấy thời gian thực theo múi giờ Việt Nam và có thứ trong tuần
 app.get('/time', (req, res) => {
-  const currentTime = moment().local().format('YYYY-MM-DD HH:mm:ss'); // Lấy thời gian theo múi giờ địa phương và định dạng theo mong muốn
+  const currentTime = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD HH:mm:ss dddd'); // Thời gian với múi giờ Việt Nam và thứ
   res.json({
     time: currentTime,
   });
