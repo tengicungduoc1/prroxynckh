@@ -61,8 +61,8 @@ app.use(
 );
 
 // Thêm route để lấy thời gian thực
-app.get('/get-time', (req, res) => {
-  const currentTime = moment().utc().toISOString(); // Lấy thời gian UTC
+app.get('/time', (req, res) => {
+  const currentTime = moment().local().format('YYYY-MM-DD HH:mm:ss'); // Lấy thời gian theo múi giờ địa phương và định dạng theo mong muốn
   res.json({
     time: currentTime,
   });
