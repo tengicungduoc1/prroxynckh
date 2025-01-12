@@ -3,7 +3,7 @@ const { createProxyMiddleware } = require('http-proxy-middleware'); // Thêm imp
 const moment = require('moment-timezone'); // Thêm thư viện moment-timezone để xử lý múi giờ
 
 const app = express(); // Khai báo instance của express
-const targetURL = 'https://rixclyagnxfhpxnpdhqu.supabase.co'; // Đảm bảo bạn có targetURL đúng ở đây
+const targetURL = 'https://hyctwifnimvyeirdwzsb.supabase.co'; // Đảm bảo bạn có targetURL đúng ở đây
 
 // Đặt middleware cho route '/proxy'
 app.use(
