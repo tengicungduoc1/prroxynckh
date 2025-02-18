@@ -11,7 +11,7 @@ app.use(
   createProxyMiddleware({
     target: targetURL,
     changeOrigin: true,
-    secure: false, // Nếu không sử dụng HTTPS, thay thành true nếu dùng HTTPS
+    secure: true, // Nếu không sử dụng HTTPS, thay thành true nếu dùng HTTPS
     pathRewrite: { '^/proxy': '' }, // Xóa tiền tố "/proxy" khỏi đường dẫn
     timeout: 120000, // Thời gian chờ cho yêu cầu đến proxy (120 giây)
     proxyTimeout: 120000, // Thời gian chờ cho phản hồi từ máy chủ đích (120 giây)
