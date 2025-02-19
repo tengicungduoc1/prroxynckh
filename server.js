@@ -4,7 +4,8 @@ const moment = require('moment-timezone'); // Thêm thư viện moment-timezone 
 
 const app = express(); // Khai báo instance của express
 const targetURL = 'https://hyctwifnimvyeirdwzsb.supabase.co/rest/v1'; // Đảm bảo bạn có targetURL đúng ở đây
-
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 // Đặt middleware cho route '/proxy'
 app.use(
   '/proxy',
