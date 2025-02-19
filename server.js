@@ -1,43 +1,42 @@
 const express = require('express');
-const { createProxyMiddleware } = require('http-proxy-middleware'); // Thêm import cho createProxyMiddleware
-const moment = require('moment-timezone'); // Thêm thư viện moment-timezone để xử lý múi giờ
+const { createProxyMiddleware } = require('http-proxy-middleware');
+const moment = require('moment-timezone');
 
-const app = express(); // Khai báo instance của express
-const targetURL = 'https://hyctwifnimvyeirdwzsb.supabase.co/rest/v1'; // Đảm bảo bạn có targetURL đúng ở đây
+const app = express();
+const targetURL = 'https://hyctwifnimvyeirdwzsb.supabase.co/rest/v1';
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-// Đặt middleware cho route '/proxy'
+
 app.use(
   '/proxy',
   createProxyMiddleware({
     target: targetURL,
     changeOrigin: true,
-    secure: false, // Nếu không sử dụng HTTPS, thay thành true nếu dùng HTTPS
-    pathRewrite: { '^/proxy': '' }, // Xóa tiền tố "/proxy" khỏi đường dẫn
-    timeout: 120000, // Thời gian chờ cho yêu cầu đến proxy (120 giây)
-    proxyTimeout: 120000, // Thời gian chờ cho phản hồi từ máy chủ đích (120 giây)
+    secure: true,
+    pathRewrite: { '^/proxy': '' },
+    timeout: 120000,
+    proxyTimeout: 120000,
 
-    // Xử lý yêu cầu trước khi chuyển tiếp (trong trường hợp POST/PUT/...):
     onProxyReq: (proxyReq, req, res) => {
-      const apiKey = req.query.apikey; // Nếu có query parameter 'apikey'
+      const apiKey =
+        req.query.apikey ||
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5Y3R3aWZuaW12eWVpcmR3enNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI0MTg3MDAsImV4cCI6MjA0Nzk5NDcwMH0.XOwNF1zwcxpQMOk28CWWbBdz9U_DK1htKw5QbeKtgsk';
+
       if (apiKey) {
         proxyReq.setHeader('apikey', apiKey);
-        console.log('API Key added to header:', apiKey);
       }
 
-      // Log body trước khi chuyển tiếp
-      console.log('Request Method:', req.method);
-      console.log('Request Body:', req.body);
-    },
-
-    // Sử dụng req.pipe() để truyền tải body
-    onProxyReqWs: (proxyReq, req, res) => {
+      // Đảm bảo truyền dữ liệu body chính xác
       if (req.body && ['POST', 'PUT', 'PATCH'].includes(req.method)) {
-        req.pipe(proxyReq); // Sử dụng pipe để truyền tải dữ liệu body
+        let bodyData = JSON.stringify(req.body);
+        proxyReq.setHeader('Content-Type', 'application/json');
+        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+        proxyReq.write(bodyData);
+        proxyReq.end();
       }
     },
 
-    // Xử lý khi xảy ra lỗi proxy
     onError: (err, req, res) => {
       console.error('Proxy error:', err.message);
       res.status(500).json({
@@ -46,7 +45,6 @@ app.use(
       });
     },
 
-    // Xử lý phản hồi từ máy chủ đích (Supabase)
     onProxyRes: (proxyRes, req, res) => {
       let body = '';
       proxyRes.on('data', (chunk) => {
@@ -55,21 +53,19 @@ app.use(
 
       proxyRes.on('end', () => {
         console.log('Response from Supabase:', body);
-        res.status(proxyRes.statusCode).send(body); // Gửi lại phản hồi về client
+        res.status(proxyRes.statusCode).send(body);
       });
     },
   })
 );
 
-// Thêm route để lấy thời gian thực theo múi giờ Việt Nam và có thứ trong tuần
 app.get('/time', (req, res) => {
-  const currentTime = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD HH:mm:ss dddd'); // Thời gian với múi giờ Việt Nam và thứ
-  res.json({
-    time: currentTime,
-  });
+  const currentTime = moment()
+    .tz('Asia/Ho_Chi_Minh')
+    .format('YYYY-MM-DD HH:mm:ss dddd');
+  res.json({ time: currentTime });
 });
 
-// Lắng nghe tại port (ví dụ port 3000)
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
