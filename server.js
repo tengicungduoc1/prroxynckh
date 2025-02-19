@@ -5,7 +5,7 @@ const moment = require('moment-timezone');
 const app = express();
 const targetURL = 'https://hyctwifnimvyeirdwzsb.supabase.co/rest/v1';
 
-// API Key tự động thêm vào request
+// API Key tự động thêm vào mọi request
 const API_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5Y3R3aWZuaW12eWVpcmR3enNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI0MTg3MDAsImV4cCI6MjA0Nzk5NDcwMH0.XOwNF1zwcxpQMOk28CWWbBdz9U_DK1htKw5QbeKtgsk';
 
@@ -23,14 +23,13 @@ app.use(
 
     // Xử lý đường dẫn: Xóa '/proxy' trước khi gửi đi
     pathRewrite: (path, req) => {
-      const newPath = path.replace(/^\/proxy/, '');
-      console.log(`Rewriting path: ${path} -> ${newPath}`);
-      return newPath;
+      return path.replace(/^\/proxy/, '');
     },
 
     // Thêm API Key vào header
     onProxyReq: (proxyReq, req, res) => {
       proxyReq.setHeader('apikey', API_KEY);
+      proxyReq.setHeader('Authorization', `Bearer ${API_KEY}`); // Một số API Supabase yêu cầu cả Authorization
 
       // Nếu có body, ghi vào request (cho POST, PUT, PATCH)
       if (req.body && ['POST', 'PUT', 'PATCH'].includes(req.method)) {
@@ -38,7 +37,6 @@ app.use(
         proxyReq.setHeader('Content-Type', 'application/json');
         proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
         proxyReq.write(bodyData);
-        proxyReq.end();
       }
     },
 
