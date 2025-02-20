@@ -21,32 +21,33 @@ app.use(
     timeout: 120000,
     proxyTimeout: 120000,
 
-    // --- Xử lý URL: ---
-    // 1. Loại bỏ tiền tố "/proxy"
-    // 2. Nếu URL có dạng "/table/id" (ví dụ: /userdata/2), chuyển thành "/table" và thêm query id=eq.id
-    // 3. Nếu URL chỉ có query (ví dụ: /userdata?id=eq.2), giữ nguyên
-    // 4. Luôn đảm bảo apikey có trong query
+    // --- Xử lý URL (pathRewrite) ---
+    // 1. Loại bỏ tiền tố "/proxy" và các dấu "/" thừa ở cuối.
+    // 2. Nếu URL có dạng "/table/id" (ví dụ: /userdata/2),
+    //    thì loại bỏ phần "/id" khỏi URL và thêm query parameter: id=eq.<id>
+    // 3. Nếu URL chỉ có query (ví dụ: /userdata?id=eq.2), giữ nguyên.
+    // 4. Luôn đảm bảo query parameter "apikey" có mặt.
     pathRewrite: (path, req) => {
-      // Loại bỏ "/proxy" khỏi path
-      let newPath = path.replace(/^\/proxy/, '');
+      // Loại bỏ "/proxy" khỏi path và xóa bỏ các dấu "/" ở cuối
+      let newPath = path.replace(/^\/proxy/, '').replace(/\/+$/, '');
       
-      // Phân tích req.url để lấy query parameters (dạng object)
+      // Lấy các query parameter từ req.url
       const parsedUrl = url.parse(req.url, true);
       const queryParams = parsedUrl.query;
-      
-      // Nếu newPath có dạng "/table/id" (ví dụ: /userdata/2)
-      const segments = newPath.split('/');
-      // segments[0] sẽ là chuỗi rỗng vì path bắt đầu bằng '/'
-      if (segments.length === 3 && segments[2]) {
-        const id = segments[2];
-        newPath = `/${segments[1]}`; // Loại bỏ phần id khỏi URL
-        // Nếu chưa có query id, thêm điều kiện id=eq.id
+
+      // Kiểm tra nếu newPath có dạng "/table/id" (ví dụ: /userdata/2)
+      const regex = /^\/([^\/]+)\/(\d+)$/;
+      const match = newPath.match(regex);
+      if (match) {
+        // match[1] là tên table, match[2] là id
+        newPath = `/${match[1]}`; // Loại bỏ phần "/id"
+        // Nếu chưa có query "id", thêm vào theo định dạng PostgREST: id=eq.<id>
         if (!queryParams.id) {
-          queryParams.id = `eq.${id}`;
+          queryParams.id = `eq.${match[2]}`;
         }
       }
       
-      // Luôn đảm bảo có apikey trong query
+      // Luôn đảm bảo có "apikey" trong query parameter
       if (!queryParams.apikey) {
         queryParams.apikey = API_KEY;
       }
@@ -56,9 +57,9 @@ app.use(
       return `${newPath}?${queryString}`;
     },
 
-    // --- Thiết lập header và xử lý body cho các request PUT/POST/PATCH ---
+    // --- Thiết lập header và xử lý body cho các request có body ---
     onProxyReq: (proxyReq, req, res) => {
-      // Đảm bảo header apikey được set
+      // Đảm bảo header "apikey" được thiết lập
       proxyReq.setHeader('apikey', API_KEY);
       console.log(`Proxying: ${req.method} ${req.url}`);
 
@@ -68,14 +69,16 @@ app.use(
         proxyReq.setHeader('Content-Type', 'application/json');
         proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
         proxyReq.write(bodyData);
-        // Không cần gọi proxyReq.end() vì http-proxy-middleware tự quản lý stream
+        // Không gọi proxyReq.end() vì http-proxy-middleware tự quản lý stream
       }
     },
 
-    // --- Log phản hồi từ Supabase (và chuyển phản hồi về client nếu cần) ---
+    // --- Log và chuyển tiếp phản hồi từ Supabase ---
     onProxyRes: (proxyRes, req, res) => {
       let body = '';
-      proxyRes.on('data', chunk => body += chunk);
+      proxyRes.on('data', (chunk) => {
+        body += chunk;
+      });
       proxyRes.on('end', () => {
         console.log('Response from Supabase:', body);
         if (!res.headersSent) {
@@ -87,7 +90,7 @@ app.use(
     onError: (err, req, res) => {
       console.error('Proxy error:', err.message);
       res.status(500).json({ error: 'Proxy error', message: err.message });
-    }
+    },
   })
 );
 
