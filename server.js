@@ -8,6 +8,7 @@ const app = express();
 const SUPABASE_URL = 'https://hyctwifnimvyeirdwzsb.supabase.co/rest/v1';
 const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5Y3R3aWZuaW12eWVpcmR3enNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI0MTg3MDAsImV4cCI6MjA0Nzk5NDcwMH0.XOwNF1zwcxpQMOk28CWWbBdz9U_DK1htKw5QbeKtgsk';
 
+// Sử dụng middleware parse JSON và URL-encoded
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -20,38 +21,38 @@ app.use(
     timeout: 120000,
     proxyTimeout: 120000,
 
-    // Sử dụng req.originalUrl để có được URL gốc của client
+    // Loại bỏ tiền tố "/proxy" và đảm bảo API key có trong query
     pathRewrite: (path, req) => {
-      // Phân tích URL gốc (bao gồm cả query string)
-      const parsedUrl = url.parse(req.originalUrl, true);
-      // Loại bỏ tiền tố "/proxy" khỏi pathname
-      const pathname = parsedUrl.pathname.replace(/^\/proxy/, '');
-      
-      // Nếu query không có apikey, thêm vào
-      if (!parsedUrl.query.apikey) {
-        parsedUrl.query.apikey = API_KEY;
+      // Lấy phần path mà không có tiền tố /proxy
+      let newPath = path.replace(/^\/proxy/, '');
+      // Lấy query từ req.url
+      const parsedUrl = url.parse(req.url, true);
+      const queryParams = parsedUrl.query;
+      // Nếu chưa có apikey, thêm vào
+      if (!queryParams.apikey) {
+        queryParams.apikey = API_KEY;
       }
-      
-      // Dùng URLSearchParams để xây dựng lại query string chính xác
-      const newQuery = new URLSearchParams(parsedUrl.query).toString();
-      
-      return `${pathname}?${newQuery}`;
+      // Xây dựng lại query string
+      const queryString = new URLSearchParams(queryParams).toString();
+      return `${newPath}?${queryString}`;
     },
 
-    // Thêm API Key vào header của request
+    // Thiết lập header và chuyển body (nếu có) cho các request PUT/POST/PATCH
     onProxyReq: (proxyReq, req, res) => {
+      // Luôn đảm bảo header apikey được thiết lập
       proxyReq.setHeader('apikey', API_KEY);
-      console.log(`Proxying: ${req.method} ${req.originalUrl}`);
-      
-      // Nếu có body và là phương thức POST/PUT/PATCH, truyền dữ liệu
+      console.log(`Proxying: ${req.method} ${req.url}`);
+
       if (req.body && ['POST', 'PUT', 'PATCH'].includes(req.method)) {
         const bodyData = JSON.stringify(req.body);
         proxyReq.setHeader('Content-Type', 'application/json');
         proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
         proxyReq.write(bodyData);
+        // Không cần gọi proxyReq.end() vì http-proxy-middleware sẽ xử lý
       }
     },
 
+    // Ghi log phản hồi từ Supabase (và chuyển phản hồi về client)
     onProxyRes: (proxyRes, req, res) => {
       let body = '';
       proxyRes.on('data', (chunk) => {
@@ -59,6 +60,10 @@ app.use(
       });
       proxyRes.on('end', () => {
         console.log('Response from Supabase:', body);
+        // Gửi phản hồi về client nếu chưa được gửi
+        if (!res.headersSent) {
+          res.end(body);
+        }
       });
     },
 
@@ -69,7 +74,7 @@ app.use(
   })
 );
 
-// API trả về thời gian Việt Nam
+// Route /time để trả về thời gian theo múi giờ Việt Nam
 app.get('/time', (req, res) => {
   const currentTime = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD HH:mm:ss dddd');
   res.json({ time: currentTime });
