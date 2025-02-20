@@ -6,54 +6,50 @@ const url = require('url');
 const app = express();
 
 const SUPABASE_URL = 'https://hyctwifnimvyeirdwzsb.supabase.co/rest/v1';
-const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5Y3R3aWZuaW12eWVpcmR3enNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI0MTg3MDAsImV4cCI6MjA0Nzk5NDcwMH0.XOwNF1zwcxpQMOk28CWWbBdz9U_DK1htKw5QbeKtgsk';
+const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
 
-// Nếu cần xử lý body của request, sử dụng middleware này:
-// app.use(express.json());
-// app.use(express.urlencoded({ extended: true }));
+// Middleware để đọc body request
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 app.use(
   '/proxy',
   createProxyMiddleware({
     target: SUPABASE_URL,
     changeOrigin: true,
-    secure: false, // Nếu sử dụng HTTPS thì giữ true, nếu không thì đổi thành false
+    secure: false, 
     timeout: 120000,
     proxyTimeout: 120000,
 
-    // Rút gọn URL: loại bỏ "/proxy" và tự động thêm apikey nếu chưa có
+    // Rút gọn URL
     pathRewrite: (path, req) => {
-      // Loại bỏ tiền tố "/proxy"
-      let newPath = path.replace(/^\/proxy/, '');
-      // Lấy query string ban đầu
-      const originalQuery = req.url.split('?')[1] || '';
-      // Nếu chưa có apikey, tự động thêm vào query
-      const newQuery = originalQuery.includes('apikey=')
-        ? originalQuery
-        : (originalQuery ? `${originalQuery}&apikey=${API_KEY}` : `apikey=${API_KEY}`);
-      return `${newPath}?${newQuery}`;
+      let newPath = path.replace(/^\/proxy/, ''); // Loại bỏ "/proxy"
+      let queryString = req.url.split('?')[1] || ''; // Lấy query string (nếu có)
+
+      // Xử lý truy vấn ID (vd: /proxy/userdata/2 -> /userdata?id=eq.2)
+      newPath = newPath.replace(/^(\/[^\/]+)\/(\d+)$/, (match, table, id) => `${table}?id=eq.${id}`);
+
+      // Thêm API Key vào query nếu chưa có
+      if (!queryString.includes('apikey=')) {
+        queryString = queryString ? `${queryString}&apikey=${API_KEY}` : `apikey=${API_KEY}`;
+      }
+
+      return `${newPath}${queryString ? '?' + queryString : ''}`;
     },
 
-    // Xử lý yêu cầu trước khi chuyển tiếp
+    // Thêm API Key vào Header
     onProxyReq: (proxyReq, req, res) => {
-      // Phân tích query string
-      const queryObject = url.parse(req.url, true).query;
-      if (queryObject.apikey) {
-        proxyReq.setHeader('apikey', queryObject.apikey);
-        console.log('API Key added to header:', queryObject.apikey);
-      }
-      console.log('Request Method:', req.method);
-      console.log('Request Body:', req.body);
-    },
-
-    // Xử lý cho các phương thức có body (POST, PUT, PATCH)
-    onProxyReqWs: (proxyReq, req, res) => {
+      proxyReq.setHeader('apikey', API_KEY);
+      console.log(`Proxying: ${req.method} ${req.url}`);
       if (req.body && ['POST', 'PUT', 'PATCH'].includes(req.method)) {
-        req.pipe(proxyReq);
+        let bodyData = JSON.stringify(req.body);
+        proxyReq.setHeader('Content-Type', 'application/json');
+        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+        proxyReq.write(bodyData);
       }
     },
 
-    // Xử lý phản hồi từ Supabase
+    // Log phản hồi từ Supabase
     onProxyRes: (proxyRes, req, res) => {
       let body = '';
       proxyRes.on('data', (chunk) => {
@@ -61,22 +57,18 @@ app.use(
       });
       proxyRes.on('end', () => {
         console.log('Response from Supabase:', body);
-        res.status(proxyRes.statusCode).send(body);
       });
     },
 
     // Xử lý lỗi proxy
     onError: (err, req, res) => {
       console.error('Proxy error:', err.message);
-      res.status(500).json({
-        error: 'Proxy error',
-        message: err.message,
-      });
+      res.status(500).json({ error: 'Proxy error', message: err.message });
     },
   })
 );
 
-// Route lấy thời gian theo múi giờ Việt Nam và có thứ
+// API trả về thời gian Việt Nam
 app.get('/time', (req, res) => {
   const currentTime = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD HH:mm:ss dddd');
   res.json({ time: currentTime });
