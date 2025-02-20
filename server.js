@@ -8,7 +8,7 @@ const app = express();
 const SUPABASE_URL = 'https://hyctwifnimvyeirdwzsb.supabase.co/rest/v1';
 const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5Y3R3aWZuaW12eWVpcmR3enNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI0MTg3MDAsImV4cCI6MjA0Nzk5NDcwMH0.XOwNF1zwcxpQMOk28CWWbBdz9U_DK1htKw5QbeKtgsk';
 
-// Sử dụng middleware parse JSON và URL-encoded
+// Middleware để parse JSON và URL-encoded body
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -21,25 +21,43 @@ app.use(
     timeout: 120000,
     proxyTimeout: 120000,
 
-    // Loại bỏ tiền tố "/proxy" và đảm bảo API key có trong query
+    // Path rewrite:
+    // - Loại bỏ tiền tố "/proxy"
+    // - Nếu URL có dạng "/proxy/table/2", chuyển thành "/table?id=eq.2"
+    // - Nếu URL chỉ có query string (ví dụ: /proxy/userdata?id=eq.2), giữ nguyên
+    // - Luôn đảm bảo apikey có trong query
     pathRewrite: (path, req) => {
-      // Lấy phần path mà không có tiền tố /proxy
+      // Loại bỏ "/proxy" khỏi path
       let newPath = path.replace(/^\/proxy/, '');
-      // Lấy query từ req.url
+      // Phân tích req.url để lấy query dưới dạng object
       const parsedUrl = url.parse(req.url, true);
       const queryParams = parsedUrl.query;
-      // Nếu chưa có apikey, thêm vào
+
+      // Nếu path có dạng "/table/number" (ví dụ: /userdata/2)
+      const match = newPath.match(/^\/([^\/]+)\/(\d+)$/);
+      if (match) {
+        const table = match[1];
+        const id = match[2];
+        newPath = `/${table}`; // Giữ lại phần table
+        // Nếu query chưa có id, thêm id từ path vào query
+        if (!queryParams.id) {
+          queryParams.id = `eq.${id}`;
+        }
+      }
+      
+      // Luôn đảm bảo có apikey trong query
       if (!queryParams.apikey) {
         queryParams.apikey = API_KEY;
       }
+      
       // Xây dựng lại query string
       const queryString = new URLSearchParams(queryParams).toString();
       return `${newPath}?${queryString}`;
     },
 
-    // Thiết lập header và chuyển body (nếu có) cho các request PUT/POST/PATCH
+    // Thiết lập header và chuyển tiếp body cho các phương thức có body
     onProxyReq: (proxyReq, req, res) => {
-      // Luôn đảm bảo header apikey được thiết lập
+      // Đảm bảo header apikey luôn được set
       proxyReq.setHeader('apikey', API_KEY);
       console.log(`Proxying: ${req.method} ${req.url}`);
 
@@ -48,11 +66,11 @@ app.use(
         proxyReq.setHeader('Content-Type', 'application/json');
         proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
         proxyReq.write(bodyData);
-        // Không cần gọi proxyReq.end() vì http-proxy-middleware sẽ xử lý
+        // Không cần gọi proxyReq.end() vì http-proxy-middleware xử lý việc đó
       }
     },
 
-    // Ghi log phản hồi từ Supabase (và chuyển phản hồi về client)
+    // Ghi log phản hồi từ Supabase (và chuyển phản hồi về client nếu cần)
     onProxyRes: (proxyRes, req, res) => {
       let body = '';
       proxyRes.on('data', (chunk) => {
@@ -60,7 +78,7 @@ app.use(
       });
       proxyRes.on('end', () => {
         console.log('Response from Supabase:', body);
-        // Gửi phản hồi về client nếu chưa được gửi
+        // Nếu phản hồi chưa được gửi, gửi về client
         if (!res.headersSent) {
           res.end(body);
         }
