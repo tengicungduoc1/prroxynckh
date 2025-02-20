@@ -8,7 +8,6 @@ const app = express();
 const SUPABASE_URL = 'https://hyctwifnimvyeirdwzsb.supabase.co/rest/v1';
 const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5Y3R3aWZuaW12eWVpcmR3enNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI0MTg3MDAsImV4cCI6MjA0Nzk5NDcwMH0.XOwNF1zwcxpQMOk28CWWbBdz9U_DK1htKw5QbeKtgsk';
 
-// Middleware để đọc body request
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -17,27 +16,23 @@ app.use(
   createProxyMiddleware({
     target: SUPABASE_URL,
     changeOrigin: true,
-    secure: false, 
+    secure: false,
     timeout: 120000,
     proxyTimeout: 120000,
 
-    // Rút gọn URL
-pathRewrite: (path, req) => {
-  let newPath = path.replace(/^\/proxy/, ''); // Loại bỏ "/proxy"
-  let queryString = req.url.split('?')[1] || ''; // Lấy query string gốc
+    // ✅ Sửa lại pathRewrite để tránh lỗi `22P02`
+    pathRewrite: (path, req) => {
+      let parsedUrl = url.parse(req.url, true);
+      let newPath = path.replace(/^\/proxy/, ''); // Loại bỏ "/proxy"
 
-  // Nếu chưa có apikey, thêm vào query string
-  if (!queryString.includes('apikey=')) {
-    queryString = queryString ? `${queryString}&apikey=${API_KEY}` : `apikey=${API_KEY}`;
-  }
+      return newPath + parsedUrl.search; // Giữ nguyên query string
+    },
 
-  return `${newPath}?${queryString}`;
-},
-
-    // Thêm API Key vào Header
+    // ✅ Chỉ thêm API Key vào Header, không thêm vào query string
     onProxyReq: (proxyReq, req, res) => {
       proxyReq.setHeader('apikey', API_KEY);
       console.log(`Proxying: ${req.method} ${req.url}`);
+      
       if (req.body && ['POST', 'PUT', 'PATCH'].includes(req.method)) {
         let bodyData = JSON.stringify(req.body);
         proxyReq.setHeader('Content-Type', 'application/json');
