@@ -6,9 +6,15 @@ const app = express();
 
 const SUPABASE_URL = 'https://hyctwifnimvyeirdwzsb.supabase.co/rest/v1';
 
-// Sử dụng middleware parse JSON và URL-encoded
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Đối với các route không phải /proxy, ta vẫn dùng express.json()
+// Nhưng đối với /proxy, ta dùng express.raw() để giữ nguyên body (dù là JSON hay dữ liệu khác)
+app.use((req, res, next) => {
+  if (req.url.startsWith('/proxy')) {
+    express.raw({ type: '*/*' })(req, res, next);
+  } else {
+    express.json()(req, res, next);
+  }
+});
 
 app.use(
   '/proxy',
@@ -18,19 +24,15 @@ app.use(
     secure: false,
     timeout: 120000,
     proxyTimeout: 120000,
-
-    // Chỉ loại bỏ tiền tố "/proxy" và giữ nguyên phần URL sau đó
+    // Chỉ loại bỏ tiền tố "/proxy" để URL cuối cùng là: SUPABASE_URL + phần còn lại
     pathRewrite: { '^/proxy': '' },
-
-    // Xử lý request body cho PUT/POST/PATCH
+    
+    // Trong onProxyReq, nếu có body, chuyển tiếp body đó (đã là Buffer) cho target
     onProxyReq: (proxyReq, req, res) => {
       console.log(`Forwarding: ${req.method} ${req.url}`);
-      if (req.body && ['POST', 'PUT', 'PATCH'].includes(req.method)) {
-        const bodyData = JSON.stringify(req.body);
-        proxyReq.setHeader('Content-Type', 'application/json');
-        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
-        proxyReq.write(bodyData);
-        // Gọi end() để kết thúc việc gửi body
+      if (req.body && req.body.length) {
+        proxyReq.setHeader('Content-Length', req.body.length);
+        proxyReq.write(req.body);
         proxyReq.end();
       }
     },
@@ -42,7 +44,7 @@ app.use(
     onError: (err, req, res) => {
       console.error('Proxy error:', err.message);
       res.status(500).json({ error: 'Proxy error', message: err.message });
-    },
+    }
   })
 );
 
