@@ -3,9 +3,10 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const moment = require('moment-timezone');
 
 const app = express();
+
 const SUPABASE_URL = 'https://hyctwifnimvyeirdwzsb.supabase.co/rest/v1';
 
-// Middleware parse body (cho JSON & URL-encoded)
+// Sử dụng middleware parse JSON và URL-encoded
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -21,7 +22,7 @@ app.use(
     // Chỉ loại bỏ tiền tố "/proxy" và giữ nguyên phần URL sau đó
     pathRewrite: { '^/proxy': '' },
 
-    // Xử lý request body cho các phương thức có body (POST, PUT, PATCH)
+    // Xử lý request body cho PUT/POST/PATCH
     onProxyReq: (proxyReq, req, res) => {
       console.log(`Forwarding: ${req.method} ${req.url}`);
       if (req.body && ['POST', 'PUT', 'PATCH'].includes(req.method)) {
@@ -29,6 +30,8 @@ app.use(
         proxyReq.setHeader('Content-Type', 'application/json');
         proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
         proxyReq.write(bodyData);
+        // Gọi end() để kết thúc việc gửi body
+        proxyReq.end();
       }
     },
 
@@ -39,7 +42,7 @@ app.use(
     onError: (err, req, res) => {
       console.error('Proxy error:', err.message);
       res.status(500).json({ error: 'Proxy error', message: err.message });
-    }
+    },
   })
 );
 
