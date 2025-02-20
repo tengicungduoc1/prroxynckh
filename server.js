@@ -22,20 +22,16 @@ app.use(
     proxyTimeout: 120000,
 
     // Rút gọn URL
-    pathRewrite: (path, req) => {
-      let newPath = path.replace(/^\/proxy/, ''); // Loại bỏ "/proxy"
-      let queryString = req.url.split('?')[1] || ''; // Lấy query string (nếu có)
+   pathRewrite: (path, req) => {
+  let newPath = path.replace(/^\/proxy/, ''); // Loại bỏ "/proxy"
+  let queryString = req.url.split('?')[1] || ''; // Lấy query string (nếu có)
 
-      // Xử lý truy vấn ID (vd: /proxy/userdata/2 -> /userdata?id=eq.2)
-      newPath = newPath.replace(/^(\/[^\/]+)\/(\d+)$/, (match, table, id) => `${table}?id=eq.${id}`);
+  // Chuyển đường dẫn "/proxy/userdata/2" thành "/userdata?id=eq.2"
+  newPath = newPath.replace(/\/(\d+)$/, (match, id) => `?id=eq.${id}`);
 
-      // Thêm API Key vào query nếu chưa có
-      if (!queryString.includes('apikey=')) {
-        queryString = queryString ? `${queryString}&apikey=${API_KEY}` : `apikey=${API_KEY}`;
-      }
-
-      return `${newPath}${queryString ? '?' + queryString : ''}`;
-    },
+  // Luôn thêm apikey, kể cả khi có query string
+  return `${newPath}?${queryString ? queryString + '&' : ''}apikey=${API_KEY}`;
+},
 
     // Thêm API Key vào Header
     onProxyReq: (proxyReq, req, res) => {
