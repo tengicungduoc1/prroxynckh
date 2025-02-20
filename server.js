@@ -26,8 +26,8 @@ app.use(
   let newPath = path.replace(/^\/proxy/, ''); // Loại bỏ "/proxy"
   let queryString = req.url.split('?')[1] || ''; // Lấy query string (nếu có)
 
-  // Chuyển đường dẫn "/proxy/userdata/2" thành "/userdata?id=eq.2"
-  newPath = newPath.replace(/\/(\d+)$/, (match, id) => `?id=eq.${id}`);
+  // // Chuyển đường dẫn "/proxy/userdata/2" thành "/userdata?id=eq.2"
+  // newPath = newPath.replace(/\/(\d+)$/, (match, id) => `?id=eq.${id}`);
 
   // Luôn thêm apikey, kể cả khi có query string
   return `${newPath}?${queryString ? queryString + '&' : ''}apikey=${API_KEY}`;
