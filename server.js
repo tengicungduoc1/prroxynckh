@@ -22,15 +22,16 @@ app.use(
     proxyTimeout: 120000,
 
     // Rút gọn URL
-   pathRewrite: (path, req) => {
+pathRewrite: (path, req) => {
   let newPath = path.replace(/^\/proxy/, ''); // Loại bỏ "/proxy"
-  let queryString = req.url.split('?')[1] || ''; // Lấy query string (nếu có)
+  let queryString = req.url.split('?')[1] || ''; // Lấy query string gốc
 
-  // // Chuyển đường dẫn "/proxy/userdata/2" thành "/userdata?id=eq.2"
-  // newPath = newPath.replace(/\/(\d+)$/, (match, id) => `?id=eq.${id}`);
+  // Nếu chưa có apikey, thêm vào query string
+  if (!queryString.includes('apikey=')) {
+    queryString = queryString ? `${queryString}&apikey=${API_KEY}` : `apikey=${API_KEY}`;
+  }
 
-  // Luôn thêm apikey, kể cả khi có query string
-  return `${newPath}?${queryString ? queryString + '&' : ''}apikey=${API_KEY}`;
+  return `${newPath}?${queryString}`;
 },
 
     // Thêm API Key vào Header
