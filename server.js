@@ -3,62 +3,51 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const moment = require('moment-timezone');
 
 const app = express();
+const SUPABASE_URL = 'https://hyctwifnimvyeirdwzsb.supabase.co/rest/v1';
 
-// Áp dụng express.json() và express.urlencoded() cho tất cả các route
+// Middleware parse body (cho JSON & URL-encoded)
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// URL của Supabase REST API
-const SUPABASE_URL = 'https://hyctwifnimvyeirdwzsb.supabase.co/rest/v1';
 
 app.use(
   '/proxy',
   createProxyMiddleware({
     target: SUPABASE_URL,
     changeOrigin: true,
-    secure: false, // Đặt thành true nếu sử dụng HTTPS với chứng chỉ hợp lệ
+    secure: false,
     timeout: 120000,
     proxyTimeout: 120000,
-    pathRewrite: {
-      '^/proxy': ''
-    },
+
+    // Chỉ loại bỏ tiền tố "/proxy" và giữ nguyên phần URL sau đó
+    pathRewrite: { '^/proxy': '' },
+
+    // Xử lý request body cho các phương thức có body (POST, PUT, PATCH)
     onProxyReq: (proxyReq, req, res) => {
-      console.log(`Proxying ${req.method} request to ${proxyReq.path}`);
-
-      if (
-        ['POST', 'PUT', 'PATCH'].includes(req.method.toUpperCase()) &&
-        req.body
-      ) {
-        // Chuyển đổi body thành chuỗi JSON
+      console.log(`Forwarding: ${req.method} ${req.url}`);
+      if (req.body && ['POST', 'PUT', 'PATCH'].includes(req.method)) {
         const bodyData = JSON.stringify(req.body);
-
-        // Cập nhật header 'Content-Type' và 'Content-Length'
         proxyReq.setHeader('Content-Type', 'application/json');
         proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
-
-        // Ghi dữ liệu body vào proxyReq
         proxyReq.write(bodyData);
       }
     },
+
     onProxyRes: (proxyRes, req, res) => {
-      console.log(`Received response with status code: ${proxyRes.statusCode}`);
+      console.log('Response received from Supabase');
     },
+
     onError: (err, req, res) => {
-      console.error('Proxy error:', err);
+      console.error('Proxy error:', err.message);
       res.status(500).json({ error: 'Proxy error', message: err.message });
     }
   })
 );
 
-// Endpoint kiểm tra server: lấy thời gian theo múi giờ Việt Nam
+// Route /time để trả về thời gian theo múi giờ Việt Nam (dùng để test server)
 app.get('/time', (req, res) => {
-  const currentTime = moment()
-    .tz('Asia/Ho_Chi_Minh')
-    .format('YYYY-MM-DD HH:mm:ss dddd');
+  const currentTime = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD HH:mm:ss dddd');
   res.json({ time: currentTime });
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-});
+app.listen(port, () => console.log(`Server running on port ${port}`));
