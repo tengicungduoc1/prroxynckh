@@ -63,3 +63,13 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
+// Route lấy thời gian theo múi giờ Việt Nam và có thứ
+app.get('/time', (req, res) => {
+  const currentTime = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD HH:mm:ss dddd');
+  res.json({ time: currentTime });
+});
+
+const port = process.env.PORT || 5000;
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
