@@ -4,8 +4,8 @@ const moment = require('moment-timezone');
 
 const app = express();
 
-// Sử dụng express.raw cho route /proxy để giữ nguyên dữ liệu body dưới dạng Buffer
-app.use('/proxy', express.raw({ type: '*/*' }));
+// Sử dụng express.json() cho route /proxy để phân tích dữ liệu JSON
+app.use('/proxy', express.json());
 
 // URL của Supabase REST API
 const SUPABASE_URL = 'https://hyctwifnimvyeirdwzsb.supabase.co/rest/v1';
@@ -23,19 +23,13 @@ app.use(
     },
     onProxyReq: (proxyReq, req, res) => {
       // Log để debug: ghi ra phương thức và độ dài body nhận được
-      console.log(`Proxying ${req.method} request, body length: ${req.body ? req.body.length : 0}`);
-      
-      // Với các phương thức có body (POST, PUT, PATCH), nếu có dữ liệu raw được đọc, ghi vào request proxy
-      if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body && req.body.length) {
-        // Đặt lại header Content-Length dựa trên độ dài body
-        proxyReq.setHeader('Content-Length', req.body.length);
-        // Nếu không có header Content-Type, đặt mặc định là application/json
-        if (!proxyReq.getHeader('Content-Type')) {
-          proxyReq.setHeader('Content-Type', 'application/json');
-        }
-        // Ghi dữ liệu raw body vào request proxy
-        proxyReq.write(req.body);
-        // Không gọi proxyReq.end() vì http-proxy-middleware sẽ tự hoàn tất request
+      console.log(`Proxying ${req.method} request, body:`, req.body);
+
+      if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
+        const bodyData = JSON.stringify(req.body);
+        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+        proxyReq.setHeader('Content-Type', 'application/json');
+        proxyReq.write(bodyData);
       }
     },
     onError: (err, req, res) => {
