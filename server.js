@@ -1,11 +1,14 @@
 const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
+const bodyParser = require('body-parser');
 const moment = require('moment-timezone');
 
 const app = express();
 const SUPABASE_URL = 'https://hyctwifnimvyeirdwzsb.supabase.co/rest/v1';
 
-// Mount route /proxy trước (không có middleware parse body)
+// Dùng raw body parser cho các request đến /proxy
+app.use('/proxy', bodyParser.raw({ type: '*/*' }));
+
 app.use(
   '/proxy',
   createProxyMiddleware({
@@ -14,21 +17,26 @@ app.use(
     secure: false,
     timeout: 120000,
     proxyTimeout: 120000,
-    // Chỉ đơn giản loại bỏ tiền tố "/proxy"
+    // Loại bỏ tiền tố /proxy
     pathRewrite: { '^/proxy': '' },
-    // Không cần xử lý body, để http-proxy-middleware tự chuyển stream gốc
+    // Truyền body từ SIM (nếu có) vào request proxy
+    onProxyReq: (proxyReq, req, res) => {
+      if (req.body && req.body.length) {
+        // Thiết lập lại Content-Length nếu cần
+        proxyReq.setHeader('Content-Length', req.body.length);
+        proxyReq.write(req.body);
+      }
+    },
   })
 );
 
-// Sau đó, bạn có thể mount middleware parse body cho các route khác nếu cần.
+// Các middleware khác cho các route không liên quan đến /proxy
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Route /time để kiểm tra server
+// Route kiểm tra thời gian server
 app.get('/time', (req, res) => {
-  const currentTime = moment()
-    .tz('Asia/Ho_Chi_Minh')
-    .format('YYYY-MM-DD HH:mm:ss dddd');
+  const currentTime = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD HH:mm:ss dddd');
   res.json({ time: currentTime });
 });
 
