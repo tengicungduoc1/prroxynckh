@@ -3,7 +3,8 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const moment = require('moment-timezone');
 
 const app = express();
-const SUPABASE_URL = 'https://hyctwifnimvyeirdwzsb.supabase.co/rest/v1';
+// Đổi target thành URL Heroku của bạn
+const TARGET_URL = 'https://glacial-tundra-54650-2a58814ae398.herokuapp.com';
 
 // Middleware thu thập raw body cho route /proxy
 app.use('/proxy', (req, res, next) => {
@@ -15,23 +16,30 @@ app.use('/proxy', (req, res, next) => {
   });
 });
 
-// Proxy chuyển tiếp đến Supabase
 app.use(
   '/proxy',
   createProxyMiddleware({
-    target: SUPABASE_URL,
+    target: TARGET_URL,
     changeOrigin: true,
-    secure: false,
+    secure: true, // Vì Heroku có chứng chỉ hợp lệ
     timeout: 120000,
     proxyTimeout: 120000,
     // Loại bỏ tiền tố /proxy
     pathRewrite: { '^/proxy': '' },
     onProxyReq: (proxyReq, req, res) => {
-      // Nếu có rawBody thì thiết lập Content-Length và ghi dữ liệu vào proxy request
-      if (req.rawBody && req.rawBody.length) {
+      // Chỉ xử lý nếu phương thức là PUT, POST hoặc PATCH và có dữ liệu body
+      if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.rawBody && req.rawBody.length > 0) {
         proxyReq.setHeader('Content-Length', req.rawBody.length);
+        // Nếu chưa có header Content-Type, có thể set lại nếu cần
+        if (!proxyReq.getHeader('Content-Type')) {
+          proxyReq.setHeader('Content-Type', 'application/json');
+        }
         proxyReq.write(req.rawBody);
+        proxyReq.end(); // Kết thúc request sau khi ghi body
       }
+    },
+    onError: (err, req, res) => {
+      res.status(500).send('Proxy error: ' + err.message);
     },
   })
 );
