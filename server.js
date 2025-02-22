@@ -1,44 +1,40 @@
 const express = require('express');
-const { createProxyMiddleware } = require('http-proxy-middleware');
-const bodyParser = require('body-parser');
-const moment = require('moment-timezone'); // Make sure to require moment-timezone
+const { createProxyMiddleware } = require('http-proxy-middleware'); // Thêm import cho createProxyMiddleware
+const app = express(); // Khai báo instance của express
+const targetURL = 'https://hyctwifnimvyeirdwzsb.supabase.co/rest/v1'; // Đảm bảo bạn có targetURL đúng ở đây
 
-const app = express();
-
-// Đặt URL của Supabase
-const targetURL = 'https://hyctwifnimvyeirdwzsb.supabase.co/rest/v1';
-
-// Middleware xử lý JSON
-app.use(bodyParser.json());
-
-// Proxy middleware
+// Đặt middleware cho route '/proxy'
 app.use(
   '/proxy',
   createProxyMiddleware({
     target: targetURL,
     changeOrigin: true,
-    secure: false,
-    pathRewrite: { '^/proxy': '' }, // Xóa tiền tố "/proxy" khỏi đường dẫn khi chuyển tiếp
-    timeout: 60000, // Thời gian chờ cho yêu cầu đến proxy (60 giây)
-    proxyTimeout: 60000, // Thời gian chờ cho phản hồi từ máy chủ đích (60 giây)
+    secure: false,  // Nếu không sử dụng HTTPS, thay thành true nếu dùng HTTPS
+    pathRewrite: { '^/proxy': '' }, // Xóa tiền tố "/proxy" khỏi đường dẫn
+    timeout: 120000, // Thời gian chờ cho yêu cầu đến proxy (120 giây)
+    proxyTimeout: 120000, // Thời gian chờ cho phản hồi từ máy chủ đích (120 giây)
+
+    // Xử lý yêu cầu trước khi chuyển tiếp (trong trường hợp POST/PUT/...):
     onProxyReq: (proxyReq, req, res) => {
-      // Lấy API key từ query string và thêm vào header
-      const apiKey = req.query.apikey;
+      const apiKey = req.query.apikey;  // Nếu có query parameter 'apikey'
       if (apiKey) {
         proxyReq.setHeader('apikey', apiKey);
         console.log('API Key added to header:', apiKey);
       }
 
-      // Gửi body nếu là POST hoặc PATCH
-      if (req.body && ['POST', 'PATCH'].includes(req.method)) {
-        const bodyData = JSON.stringify(req.body);
-        proxyReq.setHeader('Content-Type', 'application/json');
-        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
-        console.log('Body data before sending to Supabase:', bodyData);
-        proxyReq.write(bodyData);
-        proxyReq.end();
+      // Log body trước khi chuyển tiếp
+      console.log('Request Method:', req.method);
+      console.log('Request Body:', req.body);
+    },
+
+    // Sử dụng req.pipe() để truyền tải body
+    onProxyReqWs: (proxyReq, req, res) => {
+      if (req.body && ['POST', 'PUT', 'PATCH'].includes(req.method)) {
+        req.pipe(proxyReq);  // Sử dụng pipe để truyền tải dữ liệu body
       }
     },
+
+    // Xử lý khi xảy ra lỗi proxy
     onError: (err, req, res) => {
       console.error('Proxy error:', err.message);
       res.status(500).json({
@@ -46,33 +42,24 @@ app.use(
         message: err.message,
       });
     },
+
+    // Xử lý phản hồi từ máy chủ đích (Supabase)
     onProxyRes: (proxyRes, req, res) => {
       let body = '';
       proxyRes.on('data', (chunk) => {
         body += chunk;
       });
+
       proxyRes.on('end', () => {
         console.log('Response from Supabase:', body);
+        res.status(proxyRes.statusCode).send(body);  // Gửi lại phản hồi về client
       });
     },
   })
 );
 
-// Kiểm tra root endpoint
-app.get('/', (req, res) => {
-  res.send('Proxy server is running. Use /proxy to send requests to Supabase.');
-});
-
-// Endpoint kiểm tra server
-app.get('/time', (req, res) => {
-  const currentTime = moment()
-    .tz('Asia/Ho_Chi_Minh')
-    .format('YYYY-MM-DD HH:mm:ss dddd');
-  res.json({ time: currentTime });
-});
-
-// Lắng nghe trên cổng Heroku hoặc 5000
-const port = process.env.PORT || 5000;
+// Lắng nghe tại port (ví dụ port 3000)
+const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  console.log(`Server is running on port ${port}`);
 });
