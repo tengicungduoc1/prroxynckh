@@ -1,14 +1,21 @@
 const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
-const bodyParser = require('body-parser');
 const moment = require('moment-timezone');
 
 const app = express();
 const SUPABASE_URL = 'https://hyctwifnimvyeirdwzsb.supabase.co/rest/v1';
 
-// Dùng raw body parser cho các request đến /proxy
-app.use('/proxy', bodyParser.raw({ type: '*/*' }));
+// Middleware thu thập raw body cho route /proxy
+app.use('/proxy', (req, res, next) => {
+  let data = [];
+  req.on('data', chunk => data.push(chunk));
+  req.on('end', () => {
+    req.rawBody = Buffer.concat(data);
+    next();
+  });
+});
 
+// Proxy chuyển tiếp đến Supabase
 app.use(
   '/proxy',
   createProxyMiddleware({
@@ -19,12 +26,11 @@ app.use(
     proxyTimeout: 120000,
     // Loại bỏ tiền tố /proxy
     pathRewrite: { '^/proxy': '' },
-    // Truyền body từ SIM (nếu có) vào request proxy
     onProxyReq: (proxyReq, req, res) => {
-      if (req.body && req.body.length) {
-        // Thiết lập lại Content-Length nếu cần
-        proxyReq.setHeader('Content-Length', req.body.length);
-        proxyReq.write(req.body);
+      // Nếu có rawBody thì thiết lập Content-Length và ghi dữ liệu vào proxy request
+      if (req.rawBody && req.rawBody.length) {
+        proxyReq.setHeader('Content-Length', req.rawBody.length);
+        proxyReq.write(req.rawBody);
       }
     },
   })
