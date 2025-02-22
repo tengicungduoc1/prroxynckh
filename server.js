@@ -1,6 +1,7 @@
 const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const bodyParser = require('body-parser');
+const moment = require('moment-timezone'); // Make sure to require moment-timezone
 
 const app = express();
 
@@ -62,11 +63,6 @@ app.get('/', (req, res) => {
   res.send('Proxy server is running. Use /proxy to send requests to Supabase.');
 });
 
-// Lắng nghe trên cổng Heroku hoặc 5000
-const port = process.env.PORT || 5000;
-app.listen(port, () => {
-  console.log(`Proxy server is running at http://localhost:${port}`);
-});
 // Endpoint kiểm tra server
 app.get('/time', (req, res) => {
   const currentTime = moment()
@@ -75,7 +71,8 @@ app.get('/time', (req, res) => {
   res.json({ time: currentTime });
 });
 
-const port = process.env.PORT || 3000;
+// Lắng nghe trên cổng Heroku hoặc 5000
+const port = process.env.PORT || 5000;
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
