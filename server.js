@@ -1,77 +1,74 @@
 const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const moment = require('moment-timezone');
-const querystring = require('querystring');
 
 const app = express();
 
+// URL của Supabase REST API (không chèn API key tự động)
 const SUPABASE_URL = 'https://hyctwifnimvyeirdwzsb.supabase.co/rest/v1';
-const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5Y3R3aWZuaW12eWVpcmR3enNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI0MTg3MDAsImV4cCI6MjA0Nzk5NDcwMH0.XOwNF1zwcxpQMOk28CWWbBdz9U_DK1htKw5QbeKtgsk';
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Middleware thu thập raw body cho các request đến /proxy
+// Để đảm bảo PUT/POST gửi từ client (ví dụ: module SIM) chuyển dữ liệu gốc đúng
+app.use('/proxy', (req, res, next) => {
+  let data = [];
+  req.on('data', (chunk) => {
+    data.push(chunk);
+  });
+  req.on('end', () => {
+    req.rawBody = Buffer.concat(data);
+    next();
+  });
+});
 
+// Đăng ký proxy route trước khi các middleware khác (để không bị ảnh hưởng bởi express.json())
 app.use(
   '/proxy',
   createProxyMiddleware({
     target: SUPABASE_URL,
     changeOrigin: true,
-    secure: false,
+    secure: false, // Nếu cần sử dụng HTTPS, có thể chuyển thành true nếu chứng chỉ hợp lệ
     timeout: 120000,
     proxyTimeout: 120000,
-
-    // Xử lý path và query parameters
+    // Loại bỏ tiền tố "/proxy" khỏi đường dẫn khi chuyển tiếp
     pathRewrite: (path, req) => {
-      // 1. Loại bỏ tiền tố /proxy
-      const newPath = path.replace(/^\/proxy/, '');
-      
-      // 2. Phân tích query hiện tại
-      const parsed = new URL('http://localhost' + path);
-      const searchParams = parsed.searchParams;
-      
-      // 3. Thêm API key nếu chưa có
-      if (!searchParams.has('apikey')) {
-        searchParams.append('apikey', API_KEY);
-      }
-      
-      // 4. Tạo path mới với query đã được encode
-      return `${parsed.pathname}?${searchParams.toString()}`;
+      return path.replace(/^\/proxy/, '');
     },
-
-    // Xử lý body cho POST/PUT
-    onProxyReq: (proxyReq, req) => {
-      if (req.body && ['POST', 'PUT', 'PATCH'].includes(req.method)) {
-        const contentType = proxyReq.getHeader('Content-Type');
-        let bodyData;
-        
-        if (contentType === 'application/json') {
-          bodyData = JSON.stringify(req.body);
-        }
-        
-        if (contentType === 'application/x-www-form-urlencoded') {
-          bodyData = querystring.stringify(req.body);
-        }
-        
-        if (bodyData) {
-          proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
-          proxyReq.write(bodyData);
+    // Nếu có body (cho POST, PUT, PATCH) thì ghi lại dữ liệu raw vào request proxy
+    onProxyReq: (proxyReq, req, res) => {
+      if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+        if (req.rawBody && req.rawBody.length) {
+          proxyReq.setHeader('Content-Length', req.rawBody.length);
+          if (!proxyReq.getHeader('Content-Type')) {
+            proxyReq.setHeader('Content-Type', 'application/json');
+          }
+          proxyReq.write(req.rawBody);
         }
       }
     },
-
+    // Xử lý lỗi proxy
     onError: (err, req, res) => {
-      console.error('Proxy error:', err);
-      res.status(500).json({ error: 'Proxy error' });
-    }
+      console.error('Proxy error:', err.message);
+      res.status(500).json({
+        error: 'Proxy error',
+        message: err.message,
+      });
+    },
   })
 );
 
-// Giữ nguyên phần lấy thời gian
+// Các route khác sử dụng body parser thông thường
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Endpoint kiểm tra thời gian theo múi giờ Việt Nam (bao gồm cả thứ)
 app.get('/time', (req, res) => {
-  const currentTime = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD HH:mm:ss dddd');
+  const currentTime = moment()
+    .tz('Asia/Ho_Chi_Minh')
+    .format('YYYY-MM-DD HH:mm:ss dddd');
   res.json({ time: currentTime });
 });
 
+// Khởi chạy server trên cổng được cấp (Heroku hoặc 3000 nếu local)
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
