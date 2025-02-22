@@ -4,37 +4,36 @@ const moment = require('moment-timezone');
 
 const app = express();
 
-// URL của Supabase REST API (không chèn API key tự động)
+// URL của Supabase REST API (không tự động thêm API key)
 const SUPABASE_URL = 'https://hyctwifnimvyeirdwzsb.supabase.co/rest/v1';
 
-// Middleware thu thập raw body cho các request đến /proxy
-// Để đảm bảo PUT/POST gửi từ client (ví dụ: module SIM) chuyển dữ liệu gốc đúng
+// Middleware thu thập raw body cho route /proxy
 app.use('/proxy', (req, res, next) => {
-  let data = [];
-  req.on('data', (chunk) => {
-    data.push(chunk);
-  });
+  const data = [];
+  req.on('data', (chunk) => data.push(chunk));
   req.on('end', () => {
     req.rawBody = Buffer.concat(data);
     next();
   });
 });
 
-// Đăng ký proxy route trước khi các middleware khác (để không bị ảnh hưởng bởi express.json())
+// Cấu hình proxy sử dụng proxyReqPathResolver để giữ nguyên query string
 app.use(
   '/proxy',
   createProxyMiddleware({
     target: SUPABASE_URL,
     changeOrigin: true,
-    secure: false, // Nếu cần sử dụng HTTPS, có thể chuyển thành true nếu chứng chỉ hợp lệ
+    secure: false, // Nếu target dùng HTTPS và chứng chỉ hợp lệ, có thể chuyển thành true
     timeout: 120000,
     proxyTimeout: 120000,
-    // Loại bỏ tiền tố "/proxy" khỏi đường dẫn khi chuyển tiếp
-    pathRewrite: (path, req) => {
-      return path.replace(/^\/proxy/, '');
+    // Dùng req.originalUrl để đảm bảo giữ lại query string đúng, chỉ loại bỏ tiền tố /proxy
+    proxyReqPathResolver: (req) => {
+      const newUrl = req.originalUrl.replace(/^\/proxy/, '');
+      console.log('Resolved URL:', newUrl);
+      return newUrl;
     },
-    // Nếu có body (cho POST, PUT, PATCH) thì ghi lại dữ liệu raw vào request proxy
     onProxyReq: (proxyReq, req, res) => {
+      // Nếu là PUT/POST/PATCH và có raw body, ghi dữ liệu đó vào request
       if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
         if (req.rawBody && req.rawBody.length) {
           proxyReq.setHeader('Content-Length', req.rawBody.length);
@@ -45,7 +44,6 @@ app.use(
         }
       }
     },
-    // Xử lý lỗi proxy
     onError: (err, req, res) => {
       console.error('Proxy error:', err.message);
       res.status(500).json({
@@ -56,11 +54,11 @@ app.use(
   })
 );
 
-// Các route khác sử dụng body parser thông thường
+// Middleware cho các route khác (nếu cần xử lý JSON từ client)
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Endpoint kiểm tra thời gian theo múi giờ Việt Nam (bao gồm cả thứ)
+// Endpoint kiểm tra thời gian theo múi giờ Việt Nam (có thứ)
 app.get('/time', (req, res) => {
   const currentTime = moment()
     .tz('Asia/Ho_Chi_Minh')
@@ -68,7 +66,6 @@ app.get('/time', (req, res) => {
   res.json({ time: currentTime });
 });
 
-// Khởi chạy server trên cổng được cấp (Heroku hoặc 3000 nếu local)
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
