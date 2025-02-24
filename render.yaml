@@ -1,5 +1,5 @@
 services:
-  - type: free
+  - type: wed
     name: proxy-server
     env: node
     buildCommand: npm install
